@@ -294,8 +294,15 @@ type Import struct {
 
 func (i *Import) load(ws *Workspace, baseDir string) (err error) {
 	if i.SchemaLocation != "" {
-		i.ImportedSchema, err =
-			ws.loadXsd(filepath.Join(baseDir, i.SchemaLocation), true)
+		path := i.SchemaLocation
+		if strings.HasPrefix(baseDir, "http://") && !strings.HasPrefix(baseDir, "https://") {
+			if !strings.HasPrefix(path, "http://") && !strings.HasPrefix(path, "https://") {
+				path = baseDir + "/" + i.SchemaLocation
+			}
+		} else if !strings.HasPrefix(path, "http://") && !strings.HasPrefix(path, "https://") {
+			path = filepath.Join(baseDir, i.SchemaLocation)
+		}
+		i.ImportedSchema, err = ws.loadXsd(path, true)
 	}
 	return
 }

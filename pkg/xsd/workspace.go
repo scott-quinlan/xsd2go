@@ -2,8 +2,13 @@ package xsd
 
 import (
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 )
 
 type Workspace struct {
@@ -13,7 +18,6 @@ type Workspace struct {
 }
 
 func NewWorkspace(goModulesPath, xsdPath string, xmlnsOverrides []string) (*Workspace, error) {
-
 	ws := Workspace{
 		Cache:         map[string]*Schema{},
 		GoModulesPath: goModulesPath,
@@ -31,29 +35,38 @@ func NewWorkspace(goModulesPath, xsdPath string, xmlnsOverrides []string) (*Work
 	return &ws, ws.compile()
 }
 
-func (ws *Workspace) loadXsd(xsdPath string, cache bool) (*Schema, error) {
+func (ws *Workspace) loadXsd(xsdPath string, cache bool) (schema *Schema, err error) {
 	cached, found := ws.Cache[xsdPath]
 	if found {
 		return cached, nil
 	}
 	fmt.Println("\tParsing:", xsdPath)
 
-	xsdPathClean := filepath.Clean(xsdPath)
-	f, err := os.Open(xsdPathClean)
-	if err != nil {
-		return nil, err
+	var f io.ReadCloser
+	if strings.HasPrefix(xsdPath, "http://") || strings.HasPrefix(xsdPath, "https://") {
+		resp, err := http.Get(xsdPath)
+		if err != nil {
+			return schema, err
+		}
+
+		f = resp.Body
+	} else {
+		xsdPathClean := filepath.Clean(xsdPath)
+		f, err = os.Open(xsdPathClean)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	schema, err := parseSchema(f)
-	if err != nil {
-		err2 := f.Close()
-		if err2 != nil {
-			fmt.Fprintf(os.Stderr, "Error while closing file %s, %v", xsdPathClean, err2)
+	defer func() {
+		if cErr := f.Close(); cErr != nil && err == nil {
+			err = cErr
+		} else if cErr != nil {
+			fmt.Fprintf(os.Stderr, "Error while closing file %s, %v", xsdPath, cErr)
 		}
-		return nil, err
-	}
-	err = f.Close()
-	if err != nil {
+	}()
+
+	if schema, err = parseSchema(f); err != nil {
 		return nil, err
 	}
 
@@ -66,7 +79,20 @@ func (ws *Workspace) loadXsd(xsdPath string, cache bool) (*Schema, error) {
 		ws.Cache[xsdPath] = schema
 	}
 
-	dir := filepath.Dir(xsdPath)
+	fmt.Printf("base: %s\n", xsdPath)
+
+	dir := xsdPath
+	if strings.HasPrefix(dir, "http") {
+		u, err := url.Parse(dir)
+		if err != nil {
+			return nil, err
+		}
+
+		u.Path = path.Dir(u.Path)
+		dir = u.String()
+	} else {
+		dir = filepath.Dir(dir)
+	}
 
 	for idx := range schema.Includes {
 		si := schema.Includes[idx]

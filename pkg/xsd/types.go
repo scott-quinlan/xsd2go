@@ -247,6 +247,7 @@ var staticTypes = map[string]staticType{
 	"string":             "string",
 	"dateTime":           "string",
 	"date":               "string",
+	"gYear":              "int",
 	"base64Binary":       "string",
 	"normalizedString":   "string",
 	"token":              "string",
@@ -258,8 +259,10 @@ var staticTypes = map[string]staticType{
 	"integer":            "int64",
 	"long":               "int64",
 	"nonNegativeInteger": "int",
+	"hexBinary":          "string",
 	"anyURI":             "string",
 	"double":             "float64",
+	"float":              "float64",
 	"decimal":            "float64", // no: http://books.xmlschemata.org/relaxng/ch19-77057.html
 	"boolean":            "bool",
 	"ID":                 "string",

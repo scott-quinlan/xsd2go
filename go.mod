@@ -1,4 +1,4 @@
-module github.com/gocomply/xsd2go
+module github.com/scott-quinlan/xsd2go
 
 go 1.15
 
